@@ -1,0 +1,14 @@
+
+GARMENT          IoU         PRECISION   RECALL      F1 SCORE  
+
+background       0.8572      0.9113      0.9321      0.9185    
+head             0.7584      0.8721      0.8429      0.8433    
+scarf            0.3028      0.8001      0.3693      0.4213    
+arms             0.6067      0.821       0.691       0.7207    
+upperclothes     0.7654      0.8732      0.8433      0.8424    
+jumpsuits        0.6284      0.9215      0.6611      0.7085    
+pants            0.7313      0.8444      0.8227      0.8125    
+legs             0.7106      0.8755      0.7803      0.8012    
+shoes            0.574       0.7777      0.6902      0.698     
+
+mIoU score for all garments combined: 0.65942
