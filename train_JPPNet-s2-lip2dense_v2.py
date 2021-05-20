@@ -42,7 +42,7 @@ d_Weight = 1 #dense pose loss weight
 DATA_DIR = './datasets/lip/LIP_dataset/train_set'
 LIST_PATH = './datasets/lip/list/train_rev.txt'
 DATA_ID_LIST = './datasets/lip/list/train_id.txt'
-DENSE_ANN_FILE = './../LIP/anotations/dense_anotations/dense_example.pkl'
+DENSE_ANN_DIR= '../LIP/anotations/dense_anotations/train/'
 
 SNAPSHOT_DIR = './checkpoint/lip2dense_v2'
 LOG_DIR = './logs/lip2dense_v2'
@@ -57,7 +57,7 @@ def main():
     h, w = INPUT_SIZE
     # Load reader.
     with tf.name_scope("create_inputs"):
-        reader = LIPReader(DENSE_ANN_FILE,  DATA_DIR, LIST_PATH, DATA_ID_LIST, INPUT_SIZE, RANDOM_SCALE, RANDOM_MIRROR, SHUFFLE, coord)
+        reader = LIPReader(DENSE_ANN_DIR, DATA_DIR, LIST_PATH, DATA_ID_LIST, INPUT_SIZE, RANDOM_SCALE, RANDOM_MIRROR, SHUFFLE, coord)
         image_batch, label_batch, heatmap_batch, densepose_batch = reader.dequeue(BATCH_SIZE)
         image_batch075 = tf.image.resize_images(image_batch, [int(h * 0.75), int(w * 0.75)])
         image_batch050 = tf.image.resize_images(image_batch, [int(h * 0.5), int(w * 0.5)])

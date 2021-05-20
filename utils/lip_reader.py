@@ -6,6 +6,7 @@ import random
 
 import sys
 import pickle
+import json
 
 IGNORE_LABEL = 255
 NUM_POSE = 16
@@ -83,9 +84,10 @@ def resize_img_labels(image, label, heatmap, densepose, resized_h, resized_w):
     heatmap = tf.squeeze(heatmap, squeeze_dims=[0])
 
     #densepose resize
-    bbox = densepose['pred_boxes_XYXY'][0]
-    uv_label = densepose['pred_densepose'][0].uv # [2,h,w]
-    i_label = densepose['pred_densepose'][0].labels # [h,w]
+    print('densepose ------------resize:  {}'.format(densepose.numpy()))
+    bbox = densepose['pred_boxes_XYXY']
+    uv_label = densepose['pred_densepose_uv'] # [2,h,w]
+    i_label = densepose['pred_densepose_labels'] # [h,w]
     
     image_height, image_width = image.shape[0], image.shape[1] #preveri ce je res prav
     i_label_full = tf.image.pad_to_bounding_box(i_label, bbox[1], bbox[0], image_height, image_width)
@@ -145,7 +147,7 @@ def random_crop_and_pad_image_and_labels(image, label, heatmap, crop_h, crop_w, 
     return img_crop, label_crop, heatmap  
 
 
-def read_labeled_image_list(data_dir, data_list):
+def read_labeled_image_list(dense_data_dir, data_dir, data_list):
     """Reads txt file containing paths to images and ground truth masks.
     
     Args:
@@ -159,6 +161,7 @@ def read_labeled_image_list(data_dir, data_list):
     images = []
     masks = []
     masks_rev = []
+    denseposes = []
     for line in f:
         try:
             image, mask, mask_rev = line.strip("\n").split(' ')
@@ -167,7 +170,8 @@ def read_labeled_image_list(data_dir, data_list):
         images.append(data_dir + image)
         masks.append(data_dir + mask)
         masks_rev.append(data_dir + mask_rev)
-    return images, masks, masks_rev
+        denseposes.append(dense_data_dir + image + '.txt')
+    return images, masks, masks_rev, denseposes
 
 def read_pose_list(data_dir, data_id_list):
     f = open(data_id_list, 'r')
@@ -178,7 +182,7 @@ def read_pose_list(data_dir, data_id_list):
     return poses
 
 
-def read_images_from_disk(dense_anns, input_queue, input_size, random_scale, random_mirror=False): # optional pre-processing arguments
+def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=False): # optional pre-processing arguments
     """Read one image and its corresponding mask with optional pre-processing.
     
     Args:
@@ -236,8 +240,10 @@ def read_images_from_disk(dense_anns, input_queue, input_size, random_scale, ran
     heatmap_rev = tf.concat(pose_rev, axis=2)
     heatmap_rev = tf.reverse(heatmap_rev, tf.stack([1]))
 
-    #Get densepose !*
-    densepose = dense_anns[input_queue[0]]
+    #Get densepose anotations!*
+    print("densepose label ---- {}".format(input_queue[4]))
+    densepose = tf.io.read_file(input_queue[4])
+    # densepose = json.loads(data)
 
     if input_size is not None:
         h, w = input_size
@@ -261,7 +267,7 @@ class LIPReader(object):
        masks from the disk, and enqueues them into a TensorFlow queue.
     '''
 
-    def __init__(self, dense_ann_file, data_dir, data_list, data_id_list, input_size, random_scale,
+    def __init__(self, dense_data_dir, data_dir, data_list, data_id_list, input_size, random_scale,
                  random_mirror, shuffle, coord):
         '''Initialise an ImageReader.
         
@@ -274,28 +280,23 @@ class LIPReader(object):
           random_mirror: whether to randomly mirror the images prior to random crop.
           coord: TensorFlow queue coordinator.
         '''
-        self.dense_ann_file = dense_ann_file
+        self.dense_data_dir = dense_data_dir
         self.data_dir = data_dir
         self.data_list = data_list
         self.data_id_list = data_id_list
         self.input_size = input_size
         self.coord = coord
 
-        sys.path.append("../detectron2/projects/DensePose/")
-        f = open(dense_ann_file, 'rb')
-        dense_anns_data = pickle.load(f)
-        self.dense_anns = dict()
-        for image in dense_anns_data:
-          self.dense_anns[image['file_name']] = image
 
-        self.image_list, self.label_list, self.label_rev_list = read_labeled_image_list(self.data_dir, self.data_list)
+        self.image_list, self.label_list, self.label_rev_list, self.densepose_list = read_labeled_image_list(self.dense_data_dir, self.data_dir, self.data_list)
         self.pose_list = read_pose_list(self.data_dir, self.data_id_list)
         self.images = tf.convert_to_tensor(self.image_list, dtype=tf.string)
         self.labels = tf.convert_to_tensor(self.label_list, dtype=tf.string)
         self.labels_rev = tf.convert_to_tensor(self.label_rev_list, dtype=tf.string)
         self.poses = tf.convert_to_tensor(self.pose_list, dtype=tf.string)
-        self.queue = tf.train.slice_input_producer([self.images, self.labels, self.labels_rev, self.poses], shuffle=shuffle) 
-        self.image, self.label, self.heatmap, self.densepose = read_images_from_disk(self.dense_anns, self.queue, self.input_size, random_scale, random_mirror) 
+        self.denseposes = tf.convert_to_tensor(self.densepose_list, dtype=tf.string)
+        self.queue = tf.train.slice_input_producer([self.images, self.labels, self.labels_rev, self.poses, self.denseposes], shuffle=shuffle) 
+        self.image, self.label, self.heatmap, self.densepose = read_images_from_disk(self.queue, self.input_size, random_scale, random_mirror) 
 
     def dequeue(self, num_elements):
         '''Pack images and labels into a batch.
