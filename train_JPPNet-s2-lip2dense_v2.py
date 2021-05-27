@@ -61,7 +61,7 @@ def main():
         image_batch, label_batch, heatmap_batch, densepose_batch = reader.dequeue(BATCH_SIZE)
         image_batch075 = tf.image.resize_images(image_batch, [int(h * 0.75), int(w * 0.75)])
         image_batch050 = tf.image.resize_images(image_batch, [int(h * 0.5), int(w * 0.5)])
-        heatmap_batch = tf.scalar_mul(1.0/255, heatmap_batch)
+        heatmap_batch = tf.scalar_mul(1.0/255, tf.cast(heatmap_batch, tf.float32))
 
     tower_grads = []
     reuse1 = False
@@ -87,6 +87,7 @@ def main():
                 next_heatmap = heatmap_batch[i*BATCH_I:(i+1)*BATCH_I,:]
                 next_label = label_batch[i*BATCH_I:(i+1)*BATCH_I,:]
                 next_densepose_label = densepose_batch[i*BATCH_I:(i+1)*BATCH_I,:]
+                print("-----nesxt densepose label: {}".format(next_densepose_label))
 
                 # Create network.
                 print("________next_image{}".format(next_image))
@@ -215,7 +216,6 @@ def main():
 
                 #spremenimo dense labele v vektorje
                 print("-----------dense_label_proc--{}".format(dense_label_proc))
-                print("-----------dense_prediction_p1--{}".format(dense_prediction_p1))
                 raw_dense_gt = tf.reshape(dense_label_proc, [-1,]) #spremeni labele v vektor
                 raw_dense_gt075 = tf.reshape(dense_label_proc075, [-1,])
                 raw_dense_gt050 = tf.reshape(dense_label_proc050, [-1,])
@@ -270,7 +270,7 @@ def main():
                 loss_s3_050 = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(next_heatmap050, pose_out3_050)), [1, 2, 3])))
 
                 #Densepose loss
-                print("densepose loss parts : {} -- {}".format(dense_prediction_p1, gt))
+                print("densepose loss parts : {} -- {}".format("dense_prediction_p1", gt))
                 loss_d1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1, labels=gt)) #izracuna loss za densepose predikcije 1
                 loss_d1_100 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1_100, labels=gt))
                 loss_d1_075 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1_075, labels=gt075))
@@ -394,7 +394,7 @@ def average_gradients(tower_grads):
     for g, _ in grad_and_vars:
       # Add 0 dimension to the gradients to represent the tower.
       
-      expanded_g = tf.expand_dims(g, 0)
+      expanded_g = tf.expand_dims(g, 0) # TODO FIX - it is somethimes None
 
       # Append on a 'tower' dimension which we will average over below.
       grads.append(expanded_g)

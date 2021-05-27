@@ -74,7 +74,6 @@ def random_resize_img_labels(image, label, heatmap, resized_h, resized_w):
     return img, label, heatmap
 
 def resize_img_labels(image, label, heatmap, densepose, resized_h, resized_w):
-
     new_shape = tf.stack([tf.to_int32(resized_h), tf.to_int32(resized_w)])
     img = tf.image.resize_images(image, new_shape)
     label = tf.image.resize_nearest_neighbor(tf.expand_dims(label, 0), new_shape)
@@ -84,28 +83,28 @@ def resize_img_labels(image, label, heatmap, densepose, resized_h, resized_w):
     heatmap = tf.squeeze(heatmap, squeeze_dims=[0])
 
     #densepose resize
-    print('densepose ------------resize:  {}'.format(densepose.numpy()))
-    bbox = densepose['pred_boxes_XYXY']
-    uv_label = densepose['pred_densepose_uv'] # [2,h,w]
-    i_label = densepose['pred_densepose_labels'] # [h,w]
+    # print('densepose ------------resize:  {}'.format(densepose))
+    # bbox = densepose['pred_boxes_XYXY']
+    # uv_label = densepose['pred_densepose_uv'] # [2,h,w]
+    # i_label = densepose['pred_densepose_labels'] # [h,w]
     
-    image_height, image_width = image.shape[0], image.shape[1] #preveri ce je res prav
-    i_label_full = tf.image.pad_to_bounding_box(i_label, bbox[1], bbox[0], image_height, image_width)
+    # image_height, image_width = image.shape[0], image.shape[1] #preveri ce je res prav
+    # i_label_full = tf.image.pad_to_bounding_box(i_label, bbox[1], bbox[0], image_height, image_width)
 
-    u_label, v_label = uv_label[0], uv_label[1]
-    u_label_full = tf.image.pad_to_bounding_box(u_label, bbox[1], bbox[0], image_height, image_width)
-    v_label_full = tf.image.pad_to_bounding_box(v_label, bbox[1], bbox[0], image_height, image_width)
+    # u_label, v_label = uv_label[0], uv_label[1]
+    # u_label_full = tf.image.pad_to_bounding_box(u_label, bbox[1], bbox[0], image_height, image_width)
+    # v_label_full = tf.image.pad_to_bounding_box(v_label, bbox[1], bbox[0], image_height, image_width)
 
-    i_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(i_label_full, 0), new_shape)
-    i_label_resize = tf.squeeze(i_label_resize, squeeze_dims=[0])
-    u_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(u_label_full, 0), new_shape)
-    u_label_resize = tf.squeeze(u_label_resize, squeeze_dims=[0])
-    v_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(v_label_full, 0), new_shape)
-    v_label_resize = tf.squeeze(v_label_resize, squeeze_dims=[0])
+    # i_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(i_label_full, 0), new_shape)
+    # i_label_resize = tf.squeeze(i_label_resize, squeeze_dims=[0])
+    # u_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(u_label_full, 0), new_shape)
+    # u_label_resize = tf.squeeze(u_label_resize, squeeze_dims=[0])
+    # v_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(v_label_full, 0), new_shape)
+    # v_label_resize = tf.squeeze(v_label_resize, squeeze_dims=[0])
 
-    densepose['pred_densepose'][0].labels = i_label_resize
-    uv_label = densepose['pred_densepose'][0].uv[0] = u_label_resize
-    uv_label = densepose['pred_densepose'][0].uv[1] = v_label_resize
+    # densepose['pred_densepose'][0].labels = i_label_resize
+    # uv_label = densepose['pred_densepose'][0].uv[0] = u_label_resize
+    # uv_label = densepose['pred_densepose'][0].uv[1] = v_label_resize
 
     return img, label, heatmap, densepose
 
@@ -242,8 +241,20 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
 
     #Get densepose anotations!*
     print("densepose label ---- {}".format(input_queue[4]))
-    densepose = tf.io.read_file(input_queue[4])
-    # densepose = json.loads(data)
+    densepose = tf.io.read_file(input_queue[4]) # v json obliki
+
+    def parse_json(filename):
+      print("PARSE_JSON file---- {}".format(filename))
+      with open('path_to_file/person.json') as f:
+        tmp = json.load(filename)
+        uvi = np.array([tmp["pred_densepose_uv"], tmp["pred_densepose_uv"], tmp["pred_densepose_uv"]])
+      return uvi
+
+    [parsed] = tf.py_func(parse_json, [input_queue[4]], [tf.float32])
+    h, w = input_size
+    parsed.set_shape(tf.TensorShape([h, w, 3]))
+    
+    densepose = parsed
 
     if input_size is not None:
         h, w = input_size
@@ -260,7 +271,7 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
         else:
             img, label, heatmap, densepose = resize_img_labels(img, label, heatmap, densepose, h, w)
 
-    return img, label, heatmap
+    return img, label, heatmap, densepose
 
 class LIPReader(object):
     '''Generic ImageReader which reads images and corresponding segmentation
