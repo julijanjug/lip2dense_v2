@@ -3,6 +3,7 @@ import os
 import numpy as np
 import tensorflow as tf
 import random
+import pandas as pd
 
 import sys
 import pickle
@@ -75,38 +76,23 @@ def random_resize_img_labels(image, label, heatmap, resized_h, resized_w):
 
 def resize_img_labels(image, label, heatmap, densepose, resized_h, resized_w):
     new_shape = tf.stack([tf.to_int32(resized_h), tf.to_int32(resized_w)])
-    img = tf.image.resize_images(image, new_shape)
-    label = tf.image.resize_nearest_neighbor(tf.expand_dims(label, 0), new_shape)
+    img = tf.image.resize(image, new_shape)
+    label = tf.compat.v1.image.resize_nearest_neighbor(tf.expand_dims(label, 0), new_shape)
     label = tf.squeeze(label, squeeze_dims=[0])
-    new_shape = tf.stack([tf.to_int32(resized_h / 8.0), tf.to_int32(resized_w / 8.0)])
-    heatmap = tf.image.resize_nearest_neighbor(tf.expand_dims(heatmap, 0), new_shape)
+    new_shape_80 = tf.stack([tf.to_int32(resized_h / 8.0), tf.to_int32(resized_w / 8.0)])
+    heatmap = tf.compat.v1.image.resize_nearest_neighbor(tf.expand_dims(heatmap, 0), new_shape_80)
     heatmap = tf.squeeze(heatmap, squeeze_dims=[0])
 
     #densepose resize
-    # print('densepose ------------resize:  {}'.format(densepose))
-    # bbox = densepose['pred_boxes_XYXY']
-    # uv_label = densepose['pred_densepose_uv'] # [2,h,w]
-    # i_label = densepose['pred_densepose_labels'] # [h,w]
-    
-    # image_height, image_width = image.shape[0], image.shape[1] #preveri ce je res prav
-    # i_label_full = tf.image.pad_to_bounding_box(i_label, bbox[1], bbox[0], image_height, image_width)
+    print('densepose ------------resize:  {}'.format(densepose))
+    image_height, image_width = image.shape[1], image.shape[0]
+    print('densepose ------------resize height: width:  {} -- {}'.format(image_height, image_width))
+    densepose_full = tf.image.pad_to_bounding_box(densepose, 0, 0, image_height, image_width) #replace 0 0 with y, x
 
-    # u_label, v_label = uv_label[0], uv_label[1]
-    # u_label_full = tf.image.pad_to_bounding_box(u_label, bbox[1], bbox[0], image_height, image_width)
-    # v_label_full = tf.image.pad_to_bounding_box(v_label, bbox[1], bbox[0], image_height, image_width)
+    densepose_resized = tf.image.resize_nearest_neighbor(tf.expand_dims(densepose_full, 0), new_shape)
+    densepose_resized = tf.squeeze(densepose_resized, squeeze_dims=[0])
 
-    # i_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(i_label_full, 0), new_shape)
-    # i_label_resize = tf.squeeze(i_label_resize, squeeze_dims=[0])
-    # u_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(u_label_full, 0), new_shape)
-    # u_label_resize = tf.squeeze(u_label_resize, squeeze_dims=[0])
-    # v_label_resize = tf.image.resize_nearest_neighbor(tf.expand_dims(v_label_full, 0), new_shape)
-    # v_label_resize = tf.squeeze(v_label_resize, squeeze_dims=[0])
-
-    # densepose['pred_densepose'][0].labels = i_label_resize
-    # uv_label = densepose['pred_densepose'][0].uv[0] = u_label_resize
-    # uv_label = densepose['pred_densepose'][0].uv[1] = v_label_resize
-
-    return img, label, heatmap, densepose
+    return img, label, heatmap, densepose_resized
 
 def random_crop_and_pad_image_and_labels(image, label, heatmap, crop_h, crop_w, ignore_label=255):
     """
@@ -169,6 +155,7 @@ def read_labeled_image_list(dense_data_dir, data_dir, data_list):
         images.append(data_dir + image)
         masks.append(data_dir + mask)
         masks_rev.append(data_dir + mask_rev)
+        # denseposes.append(dense_data_dir + '/csv/' + image.split('.')[0].split('/')[2] + '.csv')
         denseposes.append(dense_data_dir + image + '.txt')
     return images, masks, masks_rev, denseposes
 
@@ -197,9 +184,9 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
       Two tensors: the decoded image and its mask. !* and densepose *!
     """
 
-    img_contents = tf.read_file(input_queue[0])
-    label_contents = tf.read_file(input_queue[1])
-    label_contents_rev = tf.read_file(input_queue[2])
+    img_contents = tf.io.read_file(input_queue[0])
+    label_contents = tf.io.read_file(input_queue[1])
+    label_contents_rev = tf.io.read_file(input_queue[2])
     
     img = tf.image.decode_jpeg(img_contents, channels=3)
     img_r, img_g, img_b = tf.split(value=img, num_or_size_splits=3, axis=2)
@@ -213,7 +200,7 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
     pose_id = input_queue[3]
     pose = []
     for i in range(NUM_POSE):
-        pose_contents = tf.read_file(pose_id+'_{}.png'.format(i))
+        pose_contents = tf.io.read_file(pose_id+'_{}.png'.format(i))
         pose_i = tf.image.decode_png(pose_contents, channels=1)
         pose.append(pose_i)
     heatmap = tf.concat(pose, axis=2)
@@ -239,21 +226,47 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
     heatmap_rev = tf.concat(pose_rev, axis=2)
     heatmap_rev = tf.reverse(heatmap_rev, tf.stack([1]))
 
-    #Get densepose anotations!*
-    print("densepose label ---- {}".format(input_queue[4]))
-    densepose = tf.io.read_file(input_queue[4]) # v json obliki
+    #Get densepose anotations
+    # def parse_json(filename, input_size):
+    #   if not tf.executing_eagerly():
+    #     raise RuntimeError("TensorFlow must be executing eagerly.")
+    #   print("PARSE_JSON file------- {}".format(filename))
+    #   with open(filename) as f:
+    #     tmp = f.read().replace("\\", "")[1:-1]
+    #     js = json.loads(tmp)
+    #     print("PARSE_JSON file------ pridel cez json loads")
+    #     uvi = np.array([js['pred_densepose_uv'][0], js['pred_densepose_uv'][1], js['pred_densepose_labels']]) #u,v,labels
+    #     print("PARSE_JSON file------ pridel cez uvi parsed del")
+    #     print("PARSE_JSON file uvi ------ {}".format(uvi))
+        
+    #     return uvi
 
-    def parse_json(filename):
-      print("PARSE_JSON file---- {}".format(filename))
-      with open('path_to_file/person.json') as f:
-        tmp = json.load(filename)
-        uvi = np.array([tmp["pred_densepose_uv"], tmp["pred_densepose_uv"], tmp["pred_densepose_uv"]])
-      return uvi
+    # print("----------1")
+    # [parsed] = tf.py_func(parse_json, [input_queue[4]], [tf.float32])
+    # print("----------2")
+    # h, w = input_size
+    # parsed.set_shape(tf.TensorShape([h, w, 3]))
+    # densepose = parsed
 
-    [parsed] = tf.py_func(parse_json, [input_queue[4]], [tf.float32])
+    #dense test csv 
+    def parse_csv(filename):
+      print("PARSE_JSON file------- {}".format(filename))
+      dense_test = pd.read_csv(filename, header=None)
+      print("PARSE_JSON file 2 ------- {}".format(filename))
+      dense_test_list = np.array(dense_test.values.tolist())
+      dim = dense_test_list[4][0:2] #dim1 dim2
+
+      test_u = dense_test_list[0].reshape((int(dim[0]), int(dim[1])))
+      test_v = dense_test_list[1].reshape((int(dim[0]), int(dim[1])))
+      test_i = dense_test_list[2].reshape((int(dim[0]), int(dim[1])))
+      uvi = np.asarray([test_u, test_v, test_i], np.float32)
+      uvi_tensor = tf.convert_to_tensor(uvi, np.float32)
+      print("--------pandas dense  {}".format(uvi_tensor))  
+      return uvi_tensor
+
+    [parsed] = tf.py_func(parse_csv, [input_queue[4]], [tf.float32])
     h, w = input_size
     parsed.set_shape(tf.TensorShape([h, w, 3]))
-    
     densepose = parsed
 
     if input_size is not None:
@@ -271,6 +284,9 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
         else:
             img, label, heatmap, densepose = resize_img_labels(img, label, heatmap, densepose, h, w)
 
+    print("-------------------------------------------------------------- konec load from disk" )
+    print(densepose)
+    print(img)
     return img, label, heatmap, densepose
 
 class LIPReader(object):
@@ -317,6 +333,11 @@ class LIPReader(object):
           
         Returns:
           Two tensors of size (batch_size, h, w, {3, 1}) for images and masks.'''
+        print("////////////////////////////// "+ str(num_elements))
         batch_list = [self.image, self.label, self.heatmap, self.densepose]
-        image_batch, label_batch, heatmap_batch, densepose_batch = tf.train.batch([self.image, self.label, self.heatmap, self.densepose], num_elements)
+        print(self.densepose.shape)
+        print(self.image.shape)
+        print(self.densepose)
+        print(self.image)
+        image_batch, label_batch, heatmap_batch, densepose_batch = tf.train.batch([self.image, self.label, self.heatmap, self.densepose], num_elements) #TODO fix this densepose part for real !!! duu
         return image_batch, label_batch, heatmap_batch, densepose_batch

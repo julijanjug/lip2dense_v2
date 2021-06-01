@@ -42,7 +42,7 @@ d_Weight = 1 #dense pose loss weight
 DATA_DIR = './datasets/lip/LIP_dataset/train_set'
 LIST_PATH = './datasets/lip/list/train_rev.txt'
 DATA_ID_LIST = './datasets/lip/list/train_id.txt'
-DENSE_ANN_DIR= '../LIP/anotations/dense_anotations/train/'
+DENSE_ANN_DIR= '../LIP/anotations/dense_anotations/train'
 
 SNAPSHOT_DIR = './checkpoint/lip2dense_v2'
 LOG_DIR = './logs/lip2dense_v2'
@@ -291,18 +291,18 @@ def main():
                 loss_densepose = loss_d1 + loss_d1_100 + loss_d1_075 + loss_d1_050 + loss_d2 + loss_d2_100 + loss_d2_075 + loss_d2_050 + loss_d3 + loss_d3_100 + loss_d3_075 + loss_d3_050
                 reduced_loss =  loss_pose * s_Weight + loss_parsing * p_Weight + loss_densepose * d_Weight
 
-                trainable_variable = tf.trainable_variables()
+                trainable_variable = tf.compat.v1.trainable_variables()
                 grads = optim.compute_gradients(reduced_loss, var_list=trainable_variable)
                 
                 tower_grads.append(grads)
 
-                tf.add_to_collection('loss_p1', loss_p1)
-                tf.add_to_collection('loss_p2', loss_p2)
-                tf.add_to_collection('loss_p3', loss_p3)
-                tf.add_to_collection('loss_s1', loss_s1)
-                tf.add_to_collection('loss_s2', loss_s2)
-                tf.add_to_collection('loss_s3', loss_s3)
-                tf.add_to_collection('reduced_loss', reduced_loss)
+                tf.compat.v1.add_to_collection('loss_p1', loss_p1)
+                tf.compat.v1.add_to_collection('loss_p2', loss_p2)
+                tf.compat.v1.add_to_collection('loss_p3', loss_p3)
+                tf.compat.v1.add_to_collection('loss_s1', loss_s1)
+                tf.compat.v1.add_to_collection('loss_s2', loss_s2)
+                tf.compat.v1.add_to_collection('loss_s3', loss_s3)
+                tf.compat.v1.add_to_collection('reduced_loss', reduced_loss)
 
     # Average the gradients
     grads_ave = average_gradients(tower_grads)
@@ -394,22 +394,24 @@ def average_gradients(tower_grads):
     for g, _ in grad_and_vars:
       # Add 0 dimension to the gradients to represent the tower.
       
-      expanded_g = tf.expand_dims(g, 0) # TODO FIX - it is somethimes None
+      if g is not None:
+        expanded_g = tf.expand_dims(g, 0) # TODO FIX - it is somethimes None
 
-      # Append on a 'tower' dimension which we will average over below.
-      grads.append(expanded_g)
+        # Append on a 'tower' dimension which we will average over below.
+        grads.append(expanded_g)
 
     # Average over the 'tower' dimension.
-    print("-----------Grads-- {}".format(grads))
-    grad = tf.concat(axis=0, values=grads)
-    grad = tf.reduce_mean(grad, 0)
+    # print("-----------Grads-- {}".format(grads))
+    if  len(grads) > 0:
+        grad = tf.concat(axis=0, values=grads)
+        grad = tf.reduce_mean(grad, 0)
 
-    # Keep in mind that the Variables are redundant because they are shared
-    # across towers. So .. we will just return the first tower's pointer to
-    # the Variable.
-    v = grad_and_vars[0][1]
-    grad_and_var = (grad, v)
-    average_grads.append(grad_and_var)
+        # Keep in mind that the Variables are redundant because they are shared
+        # across towers. So .. we will just return the first tower's pointer to
+        # the Variable.
+        v = grad_and_vars[0][1]
+        grad_and_var = (grad, v)
+        average_grads.append(grad_and_var)
   return average_grads
 
 if __name__ == '__main__':
