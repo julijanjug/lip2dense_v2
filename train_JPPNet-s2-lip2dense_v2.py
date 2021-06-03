@@ -88,6 +88,8 @@ def main():
                 next_label = label_batch[i*BATCH_I:(i+1)*BATCH_I,:]
                 next_densepose_label = densepose_batch[i*BATCH_I:(i+1)*BATCH_I,:]
                 print("-----nesxt densepose label: {}".format(next_densepose_label))
+                print("-----nesxt densepose label: {}".format(next_label))
+                print("-----nesxt densepose label: {}".format(next_image))
 
                 # Create network.
                 print("________next_image{}".format(next_image))

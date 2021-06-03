@@ -173,6 +173,7 @@ def read_from_csv(filename_queue):
   record_defaults = [[0.0], [0.0], [0.0]]
   u, v, i = tf.decode_csv(csv_row, record_defaults=record_defaults)
   densepose = tf.stack([u,v,i])  
+  print("--------read from csv {}".format(densepose))
   return densepose
 
 def read_images_from_disk(input_queue, dense_queue, input_size, random_scale, random_mirror=False): # optional pre-processing arguments
