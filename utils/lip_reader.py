@@ -84,15 +84,15 @@ def resize_img_labels(image, label, heatmap, densepose, resized_h, resized_w):
     heatmap = tf.squeeze(heatmap, squeeze_dims=[0])
 
     #densepose resize
-    print('densepose ------------resize:  {}'.format(densepose))
-    image_height, image_width = image.shape[1], image.shape[0]
-    print('densepose ------------resize height: width:  {} -- {}'.format(image_height, image_width))
-    densepose_full = tf.image.pad_to_bounding_box(densepose, 0, 0, image_height, image_width) #replace 0 0 with y, x
+    # print('densepose ------------resize:  {}'.format(densepose))
+    # image_height, image_width = image.shape[1], image.shape[0]
+    # print('densepose ------------resize height: width:  {} -- {}'.format(image_height, image_width))
+    # densepose_full = tf.image.pad_to_bounding_box(densepose, 0, 0, image_height, image_width) #replace 0 0 with y, x
 
-    densepose_resized = tf.image.resize_nearest_neighbor(tf.expand_dims(densepose_full, 0), new_shape)
-    densepose_resized = tf.squeeze(densepose_resized, squeeze_dims=[0])
+    # densepose_resized = tf.image.resize_nearest_neighbor(tf.expand_dims(densepose_full, 0), new_shape)
+    # densepose_resized = tf.squeeze(densepose_resized, squeeze_dims=[0])
 
-    return img, label, heatmap, densepose_resized
+    return img, label, heatmap, densepose
 
 def random_crop_and_pad_image_and_labels(image, label, heatmap, crop_h, crop_w, ignore_label=255):
     """
@@ -155,8 +155,8 @@ def read_labeled_image_list(dense_data_dir, data_dir, data_list):
         images.append(data_dir + image)
         masks.append(data_dir + mask)
         masks_rev.append(data_dir + mask_rev)
-        # denseposes.append(dense_data_dir + '/csv/' + image.split('.')[0].split('/')[2] + '.csv')
-        denseposes.append(dense_data_dir + image + '.txt')
+        denseposes.append(dense_data_dir + '/formated-csv/' + image.split('.')[0].split('/')[2] + '.csv')
+        # denseposes.append(dense_data_dir + image + '.txt')
     return images, masks, masks_rev, denseposes
 
 def read_pose_list(data_dir, data_id_list):
@@ -167,8 +167,15 @@ def read_pose_list(data_dir, data_id_list):
         poses.append(data_dir + '/heatmap/' + pose)
     return poses
 
+def read_from_csv(filename_queue):
+  reader = tf.TextLineReader(skip_header_lines=0)
+  _, csv_row = reader.read(filename_queue)
+  record_defaults = [[0.0], [0.0], [0.0]]
+  u, v, i = tf.decode_csv(csv_row, record_defaults=record_defaults)
+  densepose = tf.stack([u,v,i])  
+  return densepose
 
-def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=False): # optional pre-processing arguments
+def read_images_from_disk(input_queue, dense_queue, input_size, random_scale, random_mirror=False): # optional pre-processing arguments
     """Read one image and its corresponding mask with optional pre-processing.
     
     Args:
@@ -187,7 +194,8 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
     img_contents = tf.io.read_file(input_queue[0])
     label_contents = tf.io.read_file(input_queue[1])
     label_contents_rev = tf.io.read_file(input_queue[2])
-    
+    densepose = read_from_csv(dense_queue)
+
     img = tf.image.decode_jpeg(img_contents, channels=3)
     img_r, img_g, img_b = tf.split(value=img, num_or_size_splits=3, axis=2)
     img = tf.cast(tf.concat([img_b, img_g, img_r], 2), dtype=tf.float32)
@@ -249,25 +257,25 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror=F
     # densepose = parsed
 
     #dense test csv 
-    def parse_csv(filename):
-      print("PARSE_JSON file------- {}".format(filename))
-      dense_test = pd.read_csv(filename, header=None)
-      print("PARSE_JSON file 2 ------- {}".format(filename))
-      dense_test_list = np.array(dense_test.values.tolist())
-      dim = dense_test_list[4][0:2] #dim1 dim2
+    # def parse_csv(filename):
+    #   print("PARSE_JSON file------- {}".format(filename))
+    #   dense_test = pd.read_csv(filename, header=None)
+    #   print("PARSE_JSON file 2 ------- {}".format(filename))
+    #   dense_test_list = np.array(dense_test.values.tolist())
+    #   dim = dense_test_list[4][0:2] #dim1 dim2
 
-      test_u = dense_test_list[0].reshape((int(dim[0]), int(dim[1])))
-      test_v = dense_test_list[1].reshape((int(dim[0]), int(dim[1])))
-      test_i = dense_test_list[2].reshape((int(dim[0]), int(dim[1])))
-      uvi = np.asarray([test_u, test_v, test_i], np.float32)
-      uvi_tensor = tf.convert_to_tensor(uvi, np.float32)
-      print("--------pandas dense  {}".format(uvi_tensor))  
-      return uvi_tensor
+    #   test_u = dense_test_list[0].reshape((int(dim[0]), int(dim[1])))
+    #   test_v = dense_test_list[1].reshape((int(dim[0]), int(dim[1])))
+    #   test_i = dense_test_list[2].reshape((int(dim[0]), int(dim[1])))
+    #   uvi = np.asarray([test_u, test_v, test_i], np.float32)
+    #   uvi_tensor = tf.convert_to_tensor(uvi, np.float32)
+    #   print("--------pandas dense  {}".format(uvi_tensor))  
+    #   return uvi_tensor
 
-    [parsed] = tf.py_func(parse_csv, [input_queue[4]], [tf.float32])
-    h, w = input_size
-    parsed.set_shape(tf.TensorShape([h, w, 3]))
-    densepose = parsed
+    # [parsed] = tf.py_func(parse_csv, [input_queue[4]], [tf.float32])
+    # h, w = input_size
+    # parsed.set_shape(tf.TensorShape([h, w, 3]))
+    # densepose = parsed
 
     if input_size is not None:
         h, w = input_size
@@ -323,7 +331,8 @@ class LIPReader(object):
         self.poses = tf.convert_to_tensor(self.pose_list, dtype=tf.string)
         self.denseposes = tf.convert_to_tensor(self.densepose_list, dtype=tf.string)
         self.queue = tf.train.slice_input_producer([self.images, self.labels, self.labels_rev, self.poses, self.denseposes], shuffle=shuffle) 
-        self.image, self.label, self.heatmap, self.densepose = read_images_from_disk(self.queue, self.input_size, random_scale, random_mirror) 
+        self.just_dense_queue = tf.train.string_input_producer(self.denseposes, shuffle=shuffle) 
+        self.image, self.label, self.heatmap, self.densepose = read_images_from_disk(self.queue, self.just_dense_queue, self.input_size, random_scale, random_mirror) 
 
     def dequeue(self, num_elements):
         '''Pack images and labels into a batch.
