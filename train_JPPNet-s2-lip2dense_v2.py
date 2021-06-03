@@ -203,16 +203,29 @@ def main():
                 #TODO this needs to be worked on urgently
                 #raw dense predictions !!!
                 print("--------dense_out1--- {}".format(dense_out1))
-                _, uv_lowers_pred, u_lowres_pred, v_lowres_pred = process_dense_head_output(dense_out1)
-                _, uv_lowers_pred_100, u_lowres_pred_100, v_lowres_pred_100 = process_dense_head_output(dense_out1_100)
-                _, uv_lowers_pred_075, u_lowres_pred_075, v_lowres_pred_075 = process_dense_head_output(dense_out1_075)
-                _, uv_lowers_pred_050, u_lowres_pred_050, v_lowres_pred_050 = process_dense_head_output(dense_out1_050)
+                processed_dense_head_outputs = process_dense_head_output(dense_out1)
+                processed_dense_head_outputs_100 = process_dense_head_output(dense_out1_100)
+                processed_dense_head_outputs_075 = process_dense_head_output(dense_out1_075)
+                processed_dense_head_outputs_050 = process_dense_head_output(dense_out1_050)
+                
+                u_lowers_pred = tf.gather(processed_dense_head_outputs, [0])
+                v_lowres_pred = tf.gather(processed_dense_head_outputs, [1])
+                i_lowres_pred = tf.gather(processed_dense_head_outputs, [2])
+                u_lowers_pred_100 = tf.gather(processed_dense_head_outputs_100, [0])
+                v_lowres_pred_100 = tf.gather(processed_dense_head_outputs_100, [1])
+                i_lowres_pred_100 = tf.gather(processed_dense_head_outputs_100, [2])
+                u_lowers_pred_075 = tf.gather(processed_dense_head_outputs_075, [0])
+                v_lowres_pred_075 = tf.gather(processed_dense_head_outputs_075, [1])
+                i_lowres_pred_075 = tf.gather(processed_dense_head_outputs_075, [2])                
+                u_lowers_pred_050 = tf.gather(processed_dense_head_outputs_050, [0])
+                v_lowres_pred_050 = tf.gather(processed_dense_head_outputs_050, [1])
+                i_lowres_pred_050 = tf.gather(processed_dense_head_outputs_050, [2])
 
                 #prepare next densepose label
                 print("--------next_densepose_label--- {}".format(next_densepose_label))
-                dense_label_proc = prepare_dense_label(next_densepose_label, tf.stack(dense_out1.get_shape()[1:3]), one_hot=False) # [batch_size, h, w] se nekaj je 4 dimenzija
-                dense_label_proc075 = prepare_dense_label(next_densepose_label, tf.stack(dense_out1_075.get_shape()[1:3]), one_hot=False)
-                dense_label_proc050 = prepare_dense_label(next_densepose_label, tf.stack(dense_out1_050.get_shape()[1:3]), one_hot=False)
+                dense_label_proc = prepare_dense_label(next_densepose_label, tf.stack(dense_out1.get_shape()[1:]), one_hot=False) # [batch_size, h, w] se nekaj je 4 dimenzija
+                dense_label_proc075 = prepare_dense_label(next_densepose_label, tf.stack(dense_out1_075.get_shape()[1:]), one_hot=False)
+                dense_label_proc050 = prepare_dense_label(next_densepose_label, tf.stack(dense_out1_050.get_shape()[1:]), one_hot=False)
 
                 #spremenimo dense labele v vektorje
                 print("-----------dense_label_proc--{}".format(dense_label_proc))
@@ -269,12 +282,12 @@ def main():
                 loss_s3_075 = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(next_heatmap075, pose_out3_075)), [1, 2, 3])))
                 loss_s3_050 = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(next_heatmap050, pose_out3_050)), [1, 2, 3])))
 
-                #Densepose loss
-                print("densepose loss parts : {} -- {}".format("dense_prediction_p1", gt))
-                loss_d1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1, labels=gt)) #izracuna loss za densepose predikcije 1
-                loss_d1_100 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1_100, labels=gt))
-                loss_d1_075 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1_075, labels=gt075))
-                loss_d1_050 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1_050, labels=gt050))
+                #Densepose loss TODO finish
+                print("densepose loss parts : {} -- {}".format(i_lowres_pred, raw_dense_gt))
+                loss_d1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred, labels=raw_dense_gt)) #izracuna loss za densepose predikcije 1
+                loss_d1_100 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_100, labels=raw_dense_gt))
+                loss_d1_075 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_075, labels=raw_dense_gt075))
+                loss_d1_050 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_050, labels=raw_dense_gt050))
 
                 loss_d2 = 0  # izracuna loss za densepose predikcije 2
                 loss_d2_100 = 0

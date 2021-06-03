@@ -42,5 +42,10 @@ def prepare_dense_label(input_batch, new_size, one_hot=True):
     # input_batch = tf.image.resize_nearest_neighbor(input_batch, new_size) # as labels are integer numbers, need to use NN interpolation
     # input_batch = tf.squeeze(input_batch, squeeze_dims=[3]) # reducing the channel dimension.
     # if one_hot:
-    #   input_batch = tf.one_hot(input_batch, depth=n_classes)
+    #   input_batch = tf.one_hot(input_batch, depth=n_classes, axis=2)
   return input_batch
+
+def process_dense_head_output(head_out):
+
+    
+  return head_out
