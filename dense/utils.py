@@ -46,6 +46,6 @@ def prepare_dense_label(input_batch, new_size, one_hot=True):
   return input_batch
 
 def process_dense_head_output(head_out):
-
+  head_out = tf.reshape(head_out, [-1, n_classes])
     
   return head_out

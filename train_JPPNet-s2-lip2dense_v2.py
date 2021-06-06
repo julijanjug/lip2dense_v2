@@ -107,7 +107,6 @@ def main():
                 parsing_fea1_050 = net_050.layers['res5d_branch2b_parsing']
 
                 parsing_out1_100 = net_100.layers['fc1_human']
-                print("--------parsing_out1_100--{}".format(parsing_out1_100))
                 parsing_out1_075 = net_075.layers['fc1_human']
                 parsing_out1_050 = net_050.layers['fc1_human']
                 # pose net
@@ -120,8 +119,11 @@ def main():
                 densepose_fea_050 = net_100.layers['res4b22_relu']
                 
                 with tf.variable_scope('', reuse=reuse1):
+                    print("------densepose_fea_100 {}".format(densepose_fea_100))
+                    print("------parsing_out1_100 {}".format(parsing_out1_100))
                     dense_out1_100, dense_fea1_100 = dense_net(densepose_fea_100, 'fc1_dense') # custom densepose glava
-
+                    print("------dense_out1_100 {}".format(dense_out1_100))
+                    
                     pose_out1_100, pose_fea1_100 = pose_net(resnet_fea_100, 'fc1_pose')
                     pose_out2_100, pose_fea2_100 = pose_refine(pose_out1_100, parsing_out1_100, pose_fea1_100, name='fc2_pose')
                     parsing_out2_100, parsing_fea2_100 = parsing_refine(parsing_out1_100, pose_out1_100, parsing_fea1_100, name='fc2_parsing')
@@ -254,6 +256,9 @@ def main():
                 next_heatmap050 = tf.image.resize_nearest_neighbor(next_heatmap, pose_out1_050.get_shape()[1:3])
 
                 ### Pixel-wise softmax loss.
+                print("-----kako racunamo loss cross entropy")
+                print(prediction_p1)
+                print(gt)
                 loss_p1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1, labels=gt))
                 loss_p1_100 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1_100, labels=gt))
                 loss_p1_075 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction_p1_075, labels=gt075))
@@ -286,6 +291,8 @@ def main():
 
                 #Densepose loss TODO finish
                 print("densepose loss parts : {} -- {}".format(i_lowres_pred, raw_dense_gt))
+                print(i_lowres_pred)
+                print(raw_dense_gt)
                 loss_d1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred, labels=raw_dense_gt)) #izracuna loss za densepose predikcije 1
                 loss_d1_100 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_100, labels=raw_dense_gt))
                 loss_d1_075 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_075, labels=raw_dense_gt075))

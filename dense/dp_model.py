@@ -365,13 +365,7 @@ class DensePoseNetModel(Network):
                .add(name='res4b22')
                .relu(name='res4b22_relu'))
 
-###################################### my densepose parsing head ######################################################
-# !!!!!!! TODO
-          # head_loss_gradients['body_uv'] = _add_roi_body_uv_head(
-          #      model, add_roi_body_uv_head_func, blob_conv, dim_conv,
-          #      spatial_scale_conv
-          # )
-
+###################################### my densepose parsing head ################################################
 # def add_roi_body_uv_head_v1convX(model, blob_in, dim_in, spatial_scale):
 # I hardcoded configurable paraeters because it is easier to implement right now
           spatial_scale = 1. / 16.

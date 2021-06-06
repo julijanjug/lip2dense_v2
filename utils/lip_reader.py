@@ -169,10 +169,11 @@ def read_pose_list(data_dir, data_id_list):
 
 def read_from_csv(filename_queue):
   reader = tf.TextLineReader(skip_header_lines=0)
-  _, csv_row = reader.read(filename_queue)
+  scv_keys, csv_rows = reader.read_up_to(filename_queue, 128*128)
   record_defaults = [[0.0], [0.0], [0.0]]
-  u, v, i = tf.decode_csv(csv_row, record_defaults=record_defaults)
-  densepose = tf.stack([u,v,i])  
+  u, v, i = tf.decode_csv(csv_rows, record_defaults=record_defaults, field_delim=',')
+  densepose = tf.stack([u,v,i])
+  densepose.set_shape(tf.TensorShape([3, 128*128]))
   print("--------read from csv {}".format(densepose))
   return densepose
 
@@ -196,6 +197,8 @@ def read_images_from_disk(input_queue, dense_queue, input_size, random_scale, ra
     label_contents = tf.io.read_file(input_queue[1])
     label_contents_rev = tf.io.read_file(input_queue[2])
     densepose = read_from_csv(dense_queue)
+    print("oeoepepep-------")
+    print(densepose)
 
     img = tf.image.decode_jpeg(img_contents, channels=3)
     img_r, img_g, img_b = tf.split(value=img, num_or_size_splits=3, axis=2)
@@ -345,9 +348,7 @@ class LIPReader(object):
           Two tensors of size (batch_size, h, w, {3, 1}) for images and masks.'''
         print("////////////////////////////// "+ str(num_elements))
         batch_list = [self.image, self.label, self.heatmap, self.densepose]
-        print(self.densepose.shape)
-        print(self.image.shape)
         print(self.densepose)
         print(self.image)
-        image_batch, label_batch, heatmap_batch, densepose_batch = tf.train.batch([self.image, self.label, self.heatmap, self.densepose], num_elements) #TODO fix this densepose part for real !!! duu
+        image_batch, label_batch, heatmap_batch, densepose_batch = tf.train.batch([self.image, self.label, self.heatmap, self.densepose], num_elements)
         return image_batch, label_batch, heatmap_batch, densepose_batch
