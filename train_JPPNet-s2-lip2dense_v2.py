@@ -302,7 +302,7 @@ def main():
                 loss_s3_075 = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(next_heatmap075, pose_out3_075)), [1, 2, 3])))
                 loss_s3_050 = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(next_heatmap050, pose_out3_050)), [1, 2, 3])))
 
-                #Densepose loss TODO finish
+                #Densepose loss
                 raw_dense_gt_i = tf.dtypes.cast(tf.squeeze(raw_dense_gt_i), tf.int32)
                 raw_dense_gt075_i = tf.dtypes.cast(tf.squeeze(raw_dense_gt075_i), tf.int32)
                 raw_dense_gt050_i = tf.dtypes.cast(tf.squeeze(raw_dense_gt050_i), tf.int32)
@@ -322,7 +322,7 @@ def main():
 
                 loss_parsing = loss_p1 + loss_p1_100 + loss_p1_075 + loss_p1_050 + loss_p2 + loss_p2_100 + loss_p2_075 + loss_p2_050 + loss_p3 + loss_p3_100 + loss_p3_075 + loss_p3_050
                 loss_pose = loss_s1 + loss_s1_100 + loss_s1_075 + loss_s1_050 + loss_s2 + loss_s2_100 + loss_s2_075 + loss_s2_050 + loss_s3 + loss_s3_100 + loss_s3_075 + loss_s3_050
-                loss_densepose = loss_d1 + loss_d1_100 + loss_d1_075 + loss_d1_050 + loss_d2 + loss_d2_100 + loss_d2_075 + loss_d2_050
+                loss_densepose = 0 + loss_d2 + loss_d2_100 + loss_d2_075 + loss_d2_050 #+ loss_d1 + loss_d1_100 + loss_d1_075 + loss_d1_050
                 reduced_loss =  loss_pose * s_Weight + loss_parsing * p_Weight + loss_densepose * d_Weight
 
                 trainable_variable = tf.compat.v1.trainable_variables()
@@ -336,6 +336,8 @@ def main():
                 tf.compat.v1.add_to_collection('loss_s1', loss_s1)
                 tf.compat.v1.add_to_collection('loss_s2', loss_s2)
                 tf.compat.v1.add_to_collection('loss_s3', loss_s3)
+                tf.compat.v1.add_to_collection('loss_d1', loss_d1)
+                tf.compat.v1.add_to_collection('loss_d2', loss_d2)
                 tf.compat.v1.add_to_collection('reduced_loss', reduced_loss)
 
     # Average the gradients
@@ -349,6 +351,8 @@ def main():
     loss_s1_ave = tf.reduce_mean(tf.get_collection('loss_s1'))
     loss_s2_ave = tf.reduce_mean(tf.get_collection('loss_s2'))
     loss_s3_ave = tf.reduce_mean(tf.get_collection('loss_s3'))
+    loss_d1_ave = tf.reduce_mean(tf.get_collection('loss_d1'))
+    loss_d2_ave = tf.reduce_mean(tf.get_collection('loss_d2'))
     loss_ave = tf.reduce_mean(tf.get_collection('reduced_loss'))
 
     loss_summary_p1 = tf.summary.scalar("loss_p1_ave", loss_p1_ave)
@@ -357,8 +361,10 @@ def main():
     loss_summary_s1 = tf.summary.scalar("loss_s1_ave", loss_s1_ave)
     loss_summary_s2 = tf.summary.scalar("loss_s2_ave", loss_s2_ave)
     loss_summary_s3 = tf.summary.scalar("loss_s3_ave", loss_s3_ave)
+    loss_summary_d1 = tf.summary.scalar("loss_d1_ave", loss_d1_ave)
+    loss_summary_d2 = tf.summary.scalar("loss_d2_ave", loss_d2_ave)
     loss_summary_ave = tf.summary.scalar("loss_ave", loss_ave)
-    loss_summary = tf.summary.merge([loss_summary_ave, loss_summary_s1, loss_summary_s2, loss_summary_s3, loss_summary_p1, loss_summary_p2, loss_summary_p3])
+    loss_summary = tf.summary.merge([loss_summary_ave, loss_summary_s1, loss_summary_s2, loss_summary_s3, loss_summary_p1, loss_summary_p2, loss_summary_p3, loss_summary_d1, loss_summary_d2])
     summary_writer = tf.summary.FileWriter(LOG_DIR, graph=tf.get_default_graph())
 
     # Set up tf session and initialize variables.
