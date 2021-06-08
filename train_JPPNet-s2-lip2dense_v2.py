@@ -26,7 +26,7 @@ DENSE_N_CLASSES = 24
 #  I reduced the image size for faster procesing
 INPUT_SIZE = (128, 128)
 
-BATCH_SIZE = 18
+BATCH_SIZE = 18 #18
 BATCH_I = 2
 SHUFFLE = False
 RANDOM_SCALE = False
@@ -36,12 +36,12 @@ MOMENTUM = 0.9
 POWER = 0.9
 NUM_STEPS = 7616 * 35 + 1
 SAVE_PRED_EVERY = 7616 
-p_Weight = 1 #parsing
-s_Weight = 1 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nastavil sem da se loss uposteva samo od parsing dela
-d_Weight = 1 #dense pose loss weight
+p_Weight = 1 # parsing
+s_Weight = 1 # !pose
+d_Weight = 1 # dense pose loss weight
 DATA_DIR = './datasets/lip/LIP_dataset/train_set'
-LIST_PATH = './datasets/lip/list/train_rev.txt'
-DATA_ID_LIST = './datasets/lip/list/train_id.txt'
+LIST_PATH = './datasets/lip/list/train_rev_filtered.txt'
+DATA_ID_LIST = './datasets/lip/list/train_id_filtered.txt'
 DENSE_ANN_DIR= '../LIP/anotations/dense_anotations/train'
 
 SNAPSHOT_DIR = './checkpoint/lip2dense_v2'
@@ -207,23 +207,36 @@ def main():
                 #TODO this needs to be worked on urgently
                 #raw dense predictions !!!
                 print("--------dense_out1--- {}".format(dense_out1))
-                processed_dense_head_outputs = process_dense_head_output(dense_out1)
-                processed_dense_head_outputs_100 = process_dense_head_output(dense_out1_100)
-                processed_dense_head_outputs_075 = process_dense_head_output(dense_out1_075)
-                processed_dense_head_outputs_050 = process_dense_head_output(dense_out1_050)
+                index_uv_lowres = tf.compat.v1.layers.Conv2DTranspose(24, [4, 4], strides=2, padding="VALID")
+                u_lowres = tf.compat.v1.layers.Conv2DTranspose(1, [4, 4], strides=2, padding="VALID")
+                v_lowres = tf.compat.v1.layers.Conv2DTranspose(1, [4, 4], strides=2, padding="VALID")
+
+                processed_dense_head_outputs_uv = tf.squeeze(tf.stack([interp2d(u_lowres(dense_out1)), interp2d(v_lowres(dense_out1))]))
+                processed_dense_head_outputs_i = interp2d(index_uv_lowres(dense_out1))
+                processed_dense_head_outputs_100_uv = tf.squeeze(tf.stack([interp2d(u_lowres(dense_out1_100)), interp2d(v_lowres(dense_out1_100))]))
+                processed_dense_head_outputs_100_i = interp2d(index_uv_lowres(dense_out1_100))
+                processed_dense_head_outputs_075_uv = tf.squeeze(tf.stack([interp2d(u_lowres(dense_out1_075)), interp2d(v_lowres(dense_out1_075))]))
+                processed_dense_head_outputs_075_i = interp2d(index_uv_lowres(dense_out1_075))
+                processed_dense_head_outputs_050_uv = tf.squeeze(tf.stack([interp2d(u_lowres(dense_out1_050)), interp2d(v_lowres(dense_out1_050))]))
+                processed_dense_head_outputs_050_i = interp2d(index_uv_lowres(dense_out1_050))
+
                 
-                u_lowers_pred = tf.gather(processed_dense_head_outputs, [0])
-                v_lowres_pred = tf.gather(processed_dense_head_outputs, [1])
-                i_lowres_pred = tf.gather(processed_dense_head_outputs, [2])
-                u_lowers_pred_100 = tf.gather(processed_dense_head_outputs_100, [0])
-                v_lowres_pred_100 = tf.gather(processed_dense_head_outputs_100, [1])
-                i_lowres_pred_100 = tf.gather(processed_dense_head_outputs_100, [2])
-                u_lowers_pred_075 = tf.gather(processed_dense_head_outputs_075, [0])
-                v_lowres_pred_075 = tf.gather(processed_dense_head_outputs_075, [1])
-                i_lowres_pred_075 = tf.gather(processed_dense_head_outputs_075, [2])                
-                u_lowers_pred_050 = tf.gather(processed_dense_head_outputs_050, [0])
-                v_lowres_pred_050 = tf.gather(processed_dense_head_outputs_050, [1])
-                i_lowres_pred_050 = tf.gather(processed_dense_head_outputs_050, [2])
+                u_lowres_pred = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_uv, [0])), [2,128*128])
+                v_lowres_pred = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_uv, [1])), [2,128*128])
+                uv_lowre_pred = tf.stack([u_lowres_pred, v_lowres_pred])
+                i_lowres_pred = tf.reshape(tf.squeeze(processed_dense_head_outputs_i), [2,128*128,24])
+                u_lowres_pred_100 = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_100_uv, [0])), [2,128*128])
+                v_lowres_pred_100 = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_100_uv, [1])), [2,128*128])
+                uv_lowre_pred_100 = tf.stack([u_lowres_pred_100, v_lowres_pred_100])
+                i_lowres_pred_100 = tf.reshape(tf.squeeze(processed_dense_head_outputs_100_i), [2,128*128,24])
+                u_lowres_pred_075 = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_075_uv, [0])), [2,128*128])
+                v_lowres_pred_075 = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_075_uv, [1])), [2,128*128])
+                uv_lowre_pred_075 = tf.stack([u_lowres_pred_075, v_lowres_pred_075])
+                i_lowres_pred_075 = tf.reshape(tf.squeeze(processed_dense_head_outputs_075_i), [2,128*128,24])
+                u_lowres_pred_050 = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_050_uv, [0])), [2,128*128])
+                v_lowres_pred_050 = tf.reshape(tf.squeeze(tf.gather(processed_dense_head_outputs_050_uv, [1])), [2,128*128])
+                uv_lowre_pred_050 = tf.stack([u_lowres_pred_050, v_lowres_pred_050])
+                i_lowres_pred_050 = tf.reshape(tf.squeeze(processed_dense_head_outputs_050_i), [2,128*128,24])
 
                 #prepare next densepose label
                 print("--------next_densepose_label--- {}".format(next_densepose_label))
@@ -233,9 +246,9 @@ def main():
 
                 #spremenimo dense labele v vektorje
                 print("-----------dense_label_proc--{}".format(dense_label_proc))
-                raw_dense_gt = tf.reshape(dense_label_proc, [-1,]) #spremeni labele v vektor
-                raw_dense_gt075 = tf.reshape(dense_label_proc075, [-1,])
-                raw_dense_gt050 = tf.reshape(dense_label_proc050, [-1,])
+                raw_dense_gt_uv, raw_dense_gt_i = tf.split(tf.transpose(dense_label_proc, [1, 0, 2]), [2, 1], 0)
+                raw_dense_gt075_uv, raw_dense_gt075_i = tf.split(tf.transpose(dense_label_proc075, [1, 0, 2]), [2, 1], 0)
+                raw_dense_gt050_uv, raw_dense_gt050_i = tf.split(tf.transpose(dense_label_proc050, [1, 0, 2]), [2, 1], 0)
 
                 prediction_p1 = tf.gather(raw_prediction_p1, indices)
                 prediction_p1_100 = tf.gather(raw_prediction_p1_100, indices)
@@ -290,27 +303,26 @@ def main():
                 loss_s3_050 = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(next_heatmap050, pose_out3_050)), [1, 2, 3])))
 
                 #Densepose loss TODO finish
-                print("densepose loss parts : {} -- {}".format(i_lowres_pred, raw_dense_gt))
-                print(i_lowres_pred)
-                print(raw_dense_gt)
-                loss_d1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred, labels=raw_dense_gt)) #izracuna loss za densepose predikcije 1
-                loss_d1_100 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_100, labels=raw_dense_gt))
-                loss_d1_075 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_075, labels=raw_dense_gt075))
-                loss_d1_050 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_050, labels=raw_dense_gt050))
+                raw_dense_gt_i = tf.dtypes.cast(tf.squeeze(raw_dense_gt_i), tf.int32)
+                raw_dense_gt075_i = tf.dtypes.cast(tf.squeeze(raw_dense_gt075_i), tf.int32)
+                raw_dense_gt050_i = tf.dtypes.cast(tf.squeeze(raw_dense_gt050_i), tf.int32)
+                print("densepose loss parts : {} -- {}".format(i_lowres_pred, raw_dense_gt_i))
+                print("densepose loss parts : {} -- {}".format(i_lowres_pred_075, raw_dense_gt075_i))
+                print("densepose loss parts : {} -- {}".format(i_lowres_pred_050, raw_dense_gt050_i))
 
-                loss_d2 = 0  # izracuna loss za densepose predikcije 2
-                loss_d2_100 = 0
-                loss_d2_075 = 0
-                loss_d2_050 = 0
+                loss_d1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred, labels=raw_dense_gt_i)) #izracuna loss za densepose predikcije 1
+                loss_d1_100 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_100, labels=raw_dense_gt_i))
+                loss_d1_075 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_075, labels=raw_dense_gt075_i))
+                loss_d1_050 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=i_lowres_pred_050, labels=raw_dense_gt050_i))
 
-                loss_d3 = 0 # izracuna loss za densepose predikcije 3
-                loss_d3_100 = 0
-                loss_d3_075 = 0
-                loss_d3_050 = 0
+                loss_d2     = tf.compat.v1.losses.huber_loss(raw_dense_gt_uv, uv_lowre_pred)
+                loss_d2_100 = tf.compat.v1.losses.huber_loss(raw_dense_gt_uv, uv_lowre_pred_100)
+                loss_d2_075 = tf.compat.v1.losses.huber_loss(raw_dense_gt075_uv, uv_lowre_pred_075)
+                loss_d2_050 = tf.compat.v1.losses.huber_loss(raw_dense_gt050_uv, uv_lowre_pred_050)
 
                 loss_parsing = loss_p1 + loss_p1_100 + loss_p1_075 + loss_p1_050 + loss_p2 + loss_p2_100 + loss_p2_075 + loss_p2_050 + loss_p3 + loss_p3_100 + loss_p3_075 + loss_p3_050
                 loss_pose = loss_s1 + loss_s1_100 + loss_s1_075 + loss_s1_050 + loss_s2 + loss_s2_100 + loss_s2_075 + loss_s2_050 + loss_s3 + loss_s3_100 + loss_s3_075 + loss_s3_050
-                loss_densepose = loss_d1 + loss_d1_100 + loss_d1_075 + loss_d1_050 + loss_d2 + loss_d2_100 + loss_d2_075 + loss_d2_050 + loss_d3 + loss_d3_100 + loss_d3_075 + loss_d3_050
+                loss_densepose = loss_d1 + loss_d1_100 + loss_d1_075 + loss_d1_050 + loss_d2 + loss_d2_100 + loss_d2_075 + loss_d2_050
                 reduced_loss =  loss_pose * s_Weight + loss_parsing * p_Weight + loss_densepose * d_Weight
 
                 trainable_variable = tf.compat.v1.trainable_variables()

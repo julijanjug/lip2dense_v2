@@ -173,7 +173,7 @@ def read_from_csv(filename_queue):
   record_defaults = [[0.0], [0.0], [0.0]]
   u, v, i = tf.decode_csv(csv_rows, record_defaults=record_defaults, field_delim=',')
   densepose = tf.stack([u,v,i])
-  densepose.set_shape(tf.TensorShape([3, 128*128]))
+  densepose.set_shape(tf.TensorShape([3, 128*128])) #TODO
   print("--------read from csv {}".format(densepose))
   return densepose
 
